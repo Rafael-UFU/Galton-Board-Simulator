@@ -1,19 +1,16 @@
-// Aguarda o carregamento do DOM antes de executar o script
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- 1. CONFIGURAÇÃO BÁSICA DO MATTER.JS ---
-
-    // Atalhos para os módulos do Matter.js
     const { Engine, Render, World, Bodies, Composite, Events, Mouse, MouseConstraint } = Matter;
 
-    // Constantes de configuração
     const CANVAS_WIDTH = 800;
     const CANVAS_HEIGHT = 600;
     const BALL_RADIUS = 5;
-    const PEG_RADIUS = 4;
+    
+    // Deixando o raio do pino um pouco menor
+    const PEG_RADIUS = 3; 
     const DEFAULT_BALL_COLOR = '#ffffff';
     
-    // Paleta de cores para rastreamento
     const COLOR_PALETTE = ['#f06292', '#4fc3f7', '#aed581', '#ffd54f', DEFAULT_BALL_COLOR];
 
     // Referências aos elementos do HTML
@@ -24,12 +21,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const levelsValue = document.getElementById('levels-value');
     const ballsValue = document.getElementById('balls-value');
 
-    // Atualiza os mostradores dos sliders
     levelsSlider.oninput = () => { levelsValue.textContent = levelsSlider.value; };
     ballsSlider.oninput = () => { ballsValue.textContent = ballsSlider.value; };
 
     // --- 2. INICIALIZAÇÃO DO MUNDO E RENDERIZAÇÃO ---
-
     const engine = Engine.create();
     const world = engine.world;
 
@@ -48,7 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
     Render.run(render);
 
     // --- 3. IMPLEMENTAÇÃO DO RECURSO DE CLIQUE (MUDAR COR) ---
-
     const mouse = Mouse.create(render.canvas);
     const mouseConstraint = MouseConstraint.create(engine, {
         mouse: mouse,
@@ -62,6 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
     World.add(world, mouseConstraint);
 
     // --- CORREÇÃO BUG 2: LÓGICA DE MUDANÇA DE COR ---
+    // O problema era que a cor não estava sendo lida como um número.
+    // Usar parseInt() força o índice a ser um número, corrigindo o ciclo.
     Events.on(mouseConstraint, 'mousedown', (event) => {
         const mousePosition = event.mouse.position;
         const bodies = Composite.allBodies(world);
@@ -72,54 +68,77 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         if (clickedBody) {
-            // Em vez de ler a cor, lemos o índice que armazenamos
-            const currentIndex = clickedBody.colorIndex;
+            // FORÇA a leitura do índice como um número inteiro.
+            const currentIndex = parseInt(clickedBody.colorIndex, 10);
             
-            // A lógica de ciclo agora funciona
             const nextIndex = (currentIndex + 1) % COLOR_PALETTE.length;
             const nextColor = COLOR_PALETTE[nextIndex];
             
-            // Aplica a nova cor
+            // --- CORREÇÃO BUG 5 (PARTE 1): Mudar apenas o preenchimento ---
+            // O 'strokeStyle' (contorno) permanecerá preto.
             clickedBody.render.fillStyle = nextColor;
-            clickedBody.render.strokeStyle = nextColor;
             
-            // Armazena o *novo* índice de volta no objeto
             clickedBody.colorIndex = nextIndex;
         }
     });
 
 
     // --- 4. FUNÇÃO PRINCIPAL DA SIMULAÇÃO ---
-
     startButton.onclick = () => {
         World.clear(world);
 
         const numLevels = parseInt(levelsSlider.value);
         const numBalls = parseInt(ballsSlider.value);
 
+        // Passa o número de níveis para as funções de criação
+        createBoundaries(numLevels);
         createPegs(numLevels);
-        createBoundaries();
         createBins(numLevels);
         addBalls(numBalls);
     };
 
     // --- 5. FUNÇÕES DE CRIAÇÃO DE OBJETOS ---
 
-    function createBoundaries() {
-        // --- CORREÇÃO BUG 3: AJUSTE DO FUNIL ---
-        // Posição Y mais alta (80), barras mais curtas (250), e centros mais afastados (130)
-        // Ângulo menor (0.2 rad) para ser mais suave
-        const funnelLeft = Bodies.rectangle(CANVAS_WIDTH / 2 - 130, 80, 250, 10, { 
-            isStatic: true, 
-            angle: 0.2, // Ângulo mais suave
-            render: { fillStyle: '#95a5a6' } 
-        });
-        const funnelRight = Bodies.rectangle(CANVAS_WIDTH / 2 + 130, 80, 250, 10, { 
-            isStatic: true, 
-            angle: -0.2, // Ângulo oposto
-            render: { fillStyle: '#95a5a6' } 
-        });
+    function createBoundaries(levels) {
+        
+        // --- CORREÇÃO BUG 3 e 4 (PARTE 1): Layout Dinâmico ---
+        // O espaçamento horizontal total agora é baseado no número de níveis.
+        // Isso garante que os pinos e canaletas sempre usem o espaço disponível.
+        const numBins = levels + 1;
+        const totalHorizontalSpace = CANVAS_WIDTH * 0.9; // Usa 90% da largura
+        const horizontalSpacing = totalHorizontalSpace / numBins;
 
+        // --- CORREÇÃO BUG 1: EVITAR ENTUPIMENTO ---
+        // Alarga o funil e diminui o atrito estático (veja addBalls)
+        // O vão do funil agora é 3x o espaçamento horizontal, garantindo a passagem
+        const funnelGap = horizontalSpacing * 3;
+        const funnelWallLength = CANVAS_WIDTH * 0.3; // Comprimento da parede
+        const funnelY = 80;
+        
+        const funnelLeft = Bodies.rectangle(
+            (CANVAS_WIDTH / 2) - (funnelGap / 2) - (funnelWallLength / 2 * 0.866), // Posição X
+            funnelY, // Posição Y
+            funnelWallLength, // Largura (comprimento)
+            10, // Altura (espessura)
+            { 
+                isStatic: true, 
+                angle: 0.2, // Ângulo de 0.2 rad
+                render: { fillStyle: '#95a5a6' } 
+            }
+        );
+        const funnelRight = Bodies.rectangle(
+            (CANVAS_WIDTH / 2) + (funnelGap / 2) + (funnelWallLength / 2 * 0.866),
+            funnelY, 
+            funnelWallLength, 
+            10, 
+            { 
+                isStatic: true, 
+                angle: -0.2, 
+                render: { fillStyle: '#95a5a6' } 
+            }
+        );
+
+        // Paredes laterais e chão
         const wallLeft = Bodies.rectangle(0, CANVAS_HEIGHT / 2, 10, CANVAS_HEIGHT, { isStatic: true, render: { visible: false } });
         const wallRight = Bodies.rectangle(CANVAS_WIDTH, CANVAS_HEIGHT / 2, 10, CANVAS_HEIGHT, { isStatic: true, render: { visible: false } });
         const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT, CANVAS_WIDTH, 10, { isStatic: true, render: { visible: false } });
@@ -129,14 +148,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createPegs(levels) {
         const pegs = [];
-        const horizontalSpacing = 40;
-        const verticalSpacing = 30;
-        const startY = 150;
         
+        // --- CORREÇÃO BUG 3 (PARTE 2): Layout Dinâmico ---
+        // O espaçamento vertical e horizontal é calculado para caber na tela.
+        const numBins = levels + 1;
+        const totalHorizontalSpace = CANVAS_WIDTH * 0.9; // 90% da largura
+        const horizontalSpacing = totalHorizontalSpace / numBins;
+
+        const totalVerticalSpace = CANVAS_HEIGHT * 0.6; // 60% da altura
+        const verticalSpacing = totalVerticalSpace / levels;
+        
+        const startY = 130; // Começa um pouco mais para cima
+
         for (let row = 0; row < levels; row++) {
             const numPegsInRow = row + 1;
             const rowWidth = numPegsInRow * horizontalSpacing;
-            const startX = (CANVAS_WIDTH - rowWidth) / 2 + (horizontalSpacing/2); 
+            // Centraliza a fileira de pinos
+            const startX = (CANVAS_WIDTH - rowWidth) / 2 + (horizontalSpacing / 2);
 
             for (let i = 0; i < numPegsInRow; i++) {
                 const x = startX + i * horizontalSpacing;
@@ -156,47 +184,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createBins(levels) {
         const bins = [];
+        
+        // --- CORREÇÃO BUG 3 e 4 (PARTE 2): Layout Dinâmico ---
         const numBins = levels + 1;
-        const binWidth = 35; 
-        const binHeight = 100;
-        const startY = 150 + levels * 30 + (binHeight / 2) - 10;
-        const startX = (CANVAS_WIDTH - (numBins * binWidth)) / 2 + (binWidth / 2);
+        const totalHorizontalSpace = CANVAS_WIDTH * 0.9;
+        const binWidth = totalHorizontalSpace / numBins;
+        
+        // O espaçamento vertical dos pinos
+        const totalVerticalSpace = CANVAS_HEIGHT * 0.6;
+        const verticalSpacing = totalVerticalSpace / levels;
+        
+        // Altura da canaleta
+        const binHeight = CANVAS_HEIGHT * 0.2; // 20% da altura
+        
+        // Posição Y inicial das canaletas
+        const startY = 130 + (levels * verticalSpacing) + (binHeight / 2);
+        // Posição X inicial das canaletas
+        const startX = (CANVAS_WIDTH - totalHorizontalSpace) / 2;
 
+        // Cria as (numBins + 1) paredes verticais
         for (let i = 0; i < numBins + 1; i++) {
-            const x = (startX - (binWidth/2)) + i * binWidth;
+            const x = startX + i * binWidth;
             const binWall = Bodies.rectangle(x, startY, 4, binHeight, {
                 isStatic: true,
                 render: { fillStyle: '#ecf0f1' }
             });
             bins.push(binWall);
         }
+        
+        // --- CORREÇÃO BUG 4: ADICIONA O CHÃO DAS CANALETAS ---
+        const floorWidth = totalHorizontalSpace;
+        const floorX = startX + (floorWidth / 2); // Centro do bloco de canaletas
+        const floorY = startY + (binHeight / 2) - 2; // Posição no fundo (com 4px de espessura)
+        
+        const binFloor = Bodies.rectangle(floorX, floorY, floorWidth, 4, {
+            isStatic: true,
+            render: { fillStyle: '#ecf0f1' }
+        });
+        bins.push(binFloor); // Adiciona o chão
+
         World.add(world, bins);
     }
 
     function addBalls(count) {
-        const balls = [];
         for (let i = 0; i < count; i++) {
             setTimeout(() => {
                 const x = CANVAS_WIDTH / 2 + Math.random() * 20 - 10;
                 
-                // --- CORREÇÃO BUG 2 (Continuação): Definir o índice de cor inicial ---
-                // O índice 4 corresponde a DEFAULT_BALL_COLOR na nossa paleta
-                const initialColorIndex = 4;
+                const initialColorIndex = 4; // Índice do DEFAULT_BALL_COLOR (branco)
 
                 const ball = Bodies.circle(x, 20, BALL_RADIUS, {
                     label: 'ball',
-                    colorIndex: initialColorIndex, // Armazena o índice aqui
+                    colorIndex: initialColorIndex,
                     
-                    // --- CORREÇÃO BUG 1: Ajuste de física das bolinhas ---
-                    restitution: 0.6,    // Um pouco menos saltitante
-                    friction: 0.1,       // Mais atrito
-                    frictionStatic: 0.5, // Atrito para parar de deslizar
-                    frictionAir: 0.01,   // Resistência do ar leve
-                    density: 0.005,      // Mais denso/pesado
+                    restitution: 0.6,
+                    friction: 0.1,
                     
+                    // --- CORREÇÃO BUG 1: Reduz atrito estático para evitar entupimento ---
+                    frictionStatic: 0.1, // Era 0.5, agora é 0.1 (menos "pegajoso")
+                    
+                    frictionAir: 0.01,
+                    density: 0.005,
+                    
+                    // --- CORREÇÃO BUG 5 (PARTE 2): Adiciona contorno preto ---
                     render: {
                         fillStyle: COLOR_PALETTE[initialColorIndex],
-                        strokeStyle: COLOR_PALETTE[initialColorIndex],
+                        strokeStyle: '#000000', // Contorno preto
                         lineWidth: 1
                     }
                 });
