@@ -1,0 +1,72 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
+
+h1 {
+    color: #444;
+}
+
+.controles {
+    display: flex;
+    gap: 20px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.controle-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+#start-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #007aff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#start-button:hover {
+    background-color: #0056b3;
+}
+
+#canvas-container {
+    /* O canvas será inserido aqui pelo script */
+    border: 1px solid #ccc;
+    background-color: #2c3e50; /* Fundo escuro para destacar as bolinhas */
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.instrucoes {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.cor-ex {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    vertical-align: middle;
+}
