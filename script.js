@@ -6,9 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const CANVAS_WIDTH = 800;
     const CANVAS_HEIGHT = 600;
     const BALL_RADIUS = 5;
-    
-    // Deixando o raio do pino um pouco menor
-    const PEG_RADIUS = 3; 
+    const PEG_RADIUS = 3;
     const DEFAULT_BALL_COLOR = '#ffffff';
     
     const COLOR_PALETTE = ['#f06292', '#4fc3f7', '#aed581', '#ffd54f', DEFAULT_BALL_COLOR];
@@ -55,9 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     World.add(world, mouseConstraint);
 
-    // --- CORREÇÃO BUG 2: LÓGICA DE MUDANÇA DE COR ---
-    // O problema era que a cor não estava sendo lida como um número.
-    // Usar parseInt() força o índice a ser um número, corrigindo o ciclo.
     Events.on(mouseConstraint, 'mousedown', (event) => {
         const mousePosition = event.mouse.position;
         const bodies = Composite.allBodies(world);
@@ -68,16 +63,11 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         if (clickedBody) {
-            // FORÇA a leitura do índice como um número inteiro.
             const currentIndex = parseInt(clickedBody.colorIndex, 10);
-            
             const nextIndex = (currentIndex + 1) % COLOR_PALETTE.length;
             const nextColor = COLOR_PALETTE[nextIndex];
             
-            // --- CORREÇÃO BUG 5 (PARTE 1): Mudar apenas o preenchimento ---
-            // O 'strokeStyle' (contorno) permanecerá preto.
             clickedBody.render.fillStyle = nextColor;
-            
             clickedBody.colorIndex = nextIndex;
         }
     });
@@ -89,82 +79,84 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const numLevels = parseInt(levelsSlider.value);
         const numBalls = parseInt(ballsSlider.value);
+        const numBins = numLevels + 1;
 
-        // Passa o número de níveis para as funções de criação
-        createBoundaries(numLevels);
-        createPegs(numLevels);
-        createBins(numLevels);
+        // --- CORREÇÃO BUG 2 e 3: CÁLCULO DE ESPAÇAMENTO HÍBRIDO ---
+        const totalHorizontalSpace = CANVAS_WIDTH * 0.9; // 90% da largura
+        const totalVerticalSpace = CANVAS_HEIGHT * 0.6; // 60% da altura
+        
+        // Calcula o espaçamento ideal
+        let pegHorizontalSpacing = totalHorizontalSpace / numBins;
+        
+        // Define um espaçamento MÁXIMO para garantir a aleatoriedade (física)
+        const maxPegSpacing = BALL_RADIUS * 8; // 5px * 8 = 40px
+        
+        if (pegHorizontalSpacing > maxPegSpacing) {
+            pegHorizontalSpacing = maxPegSpacing;
+        }
+        
+        // A largura da canaleta será a mesma do espaçamento dos pinos
+        const binWidth = pegHorizontalSpacing;
+        
+        // O espaçamento vertical pode ser sempre dinâmico
+        const pegVerticalSpacing = totalVerticalSpace / numLevels;
+
+        // Passa os valores calculados para as funções de criação
+        createBoundaries(); // O funil agora é fixo
+        createPegs(numLevels, pegHorizontalSpacing, pegVerticalSpacing);
+        createBins(numLevels, binWidth, pegVerticalSpacing);
         addBalls(numBalls);
     };
 
     // --- 5. FUNÇÕES DE CRIAÇÃO DE OBJETOS ---
 
-    function createBoundaries(levels) {
+    function createBoundaries() {
         
-        // --- CORREÇÃO BUG 3 e 4 (PARTE 1): Layout Dinâmico ---
-        // O espaçamento horizontal total agora é baseado no número de níveis.
-        // Isso garante que os pinos e canaletas sempre usem o espaço disponível.
-        const numBins = levels + 1;
-        const totalHorizontalSpace = CANVAS_WIDTH * 0.9; // Usa 90% da largura
-        const horizontalSpacing = totalHorizontalSpace / numBins;
-
-        // --- CORREÇÃO BUG 1: EVITAR ENTUPIMENTO ---
-        // Alarga o funil e diminui o atrito estático (veja addBalls)
-        // O vão do funil agora é 3x o espaçamento horizontal, garantindo a passagem
-        const funnelGap = horizontalSpacing * 3;
-        const funnelWallLength = CANVAS_WIDTH * 0.3; // Comprimento da parede
+        // --- CORREÇÃO BUG 1: FUNIL COM VÃO FIXO ---
+        const funnelGap = 30; // Vão fixo de 30px
+        const funnelWallLength = 250;
         const funnelY = 80;
-        
-        const funnelLeft = Bodies.rectangle(
-            (CANVAS_WIDTH / 2) - (funnelGap / 2) - (funnelWallLength / 2 * 0.866), // Posição X
-            funnelY, // Posição Y
-            funnelWallLength, // Largura (comprimento)
-            10, // Altura (espessura)
-            { 
-                isStatic: true, 
-                angle: 0.2, // Ângulo de 0.2 rad
-                render: { fillStyle: '#95a5a6' } 
-            }
-        );
-        const funnelRight = Bodies.rectangle(
-            (CANVAS_WIDTH / 2) + (funnelGap / 2) + (funnelWallLength / 2 * 0.866),
-            funnelY, 
-            funnelWallLength, 
-            10, 
-            { 
-                isStatic: true, 
-                angle: -0.2, 
-                render: { fillStyle: '#95a5a6' } 
-            }
-        );
+        const funnelAngle = 0.2; // 0.2 radianos
 
-        // Paredes laterais e chão
+        // Calcula a posição do centro da rampa esquerda
+        const leftWallX = (CANVAS_WIDTH / 2) - (funnelGap / 2) - (funnelWallLength / 2 * Math.cos(funnelAngle));
+        const leftWallY = funnelY + (funnelWallLength / 2 * Math.sin(funnelAngle));
+
+        const funnelLeft = Bodies.rectangle(leftWallX, leftWallY, funnelWallLength, 10, { 
+            isStatic: true, 
+            angle: funnelAngle, 
+            render: { fillStyle: '#95a5a6' } 
+        });
+
+        // Calcula a posição do centro da rampa direita
+        const rightWallX = (CANVAS_WIDTH / 2) + (funnelGap / 2) + (funnelWallLength / 2 * Math.cos(funnelAngle));
+        const rightWallY = funnelY + (funnelWallLength / 2 * Math.sin(funnelAngle));
+
+        const funnelRight = Bodies.rectangle(rightWallX, rightWallY, funnelWallLength, 10, { 
+            isStatic: true, 
+            angle: -funnelAngle, 
+            render: { fillStyle: '#95a5a6' } 
+        });
+
+        // Paredes laterais e chão (sem alteração)
         const wallLeft = Bodies.rectangle(0, CANVAS_HEIGHT / 2, 10, CANVAS_HEIGHT, { isStatic: true, render: { visible: false } });
         const wallRight = Bodies.rectangle(CANVAS_WIDTH, CANVAS_HEIGHT / 2, 10, CANVAS_HEIGHT, { isStatic: true, render: { visible: false } });
-        const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT, CANVAS_WIDTH, 10, { isStatic: true, render: { visible: false } });
+        const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT + 5, CANVAS_WIDTH, 10, { isStatic: true, render: { visible: false } }); // Um pouco mais para baixo
 
         World.add(world, [funnelLeft, funnelRight, wallLeft, wallRight, ground]);
     }
 
-    function createPegs(levels) {
+    // A função agora recebe os espaçamentos calculados
+    function createPegs(levels, horizontalSpacing, verticalSpacing) {
         const pegs = [];
-        
-        // --- CORREÇÃO BUG 3 (PARTE 2): Layout Dinâmico ---
-        // O espaçamento vertical e horizontal é calculado para caber na tela.
-        const numBins = levels + 1;
-        const totalHorizontalSpace = CANVAS_WIDTH * 0.9; // 90% da largura
-        const horizontalSpacing = totalHorizontalSpace / numBins;
-
-        const totalVerticalSpace = CANVAS_HEIGHT * 0.6; // 60% da altura
-        const verticalSpacing = totalVerticalSpace / levels;
-        
-        const startY = 130; // Começa um pouco mais para cima
+        const startY = 130; 
 
         for (let row = 0; row < levels; row++) {
             const numPegsInRow = row + 1;
-            const rowWidth = numPegsInRow * horizontalSpacing;
-            // Centraliza a fileira de pinos
-            const startX = (CANVAS_WIDTH - rowWidth) / 2 + (horizontalSpacing / 2);
+            // A largura total da *linha* de pinos
+            const rowWidth = (numPegsInRow - 1) * horizontalSpacing;
+            // Centraliza a linha
+            const startX = (CANVAS_WIDTH - rowWidth) / 2;
 
             for (let i = 0; i < numPegsInRow; i++) {
                 const x = startX + i * horizontalSpacing;
@@ -182,25 +174,18 @@ document.addEventListener('DOMContentLoaded', () => {
         World.add(world, pegs);
     }
 
-    function createBins(levels) {
+    // A função agora recebe a largura da canaleta e o espaçamento vertical
+    function createBins(levels, binWidth, pegVerticalSpacing) {
         const bins = [];
-        
-        // --- CORREÇÃO BUG 3 e 4 (PARTE 2): Layout Dinâmico ---
         const numBins = levels + 1;
-        const totalHorizontalSpace = CANVAS_WIDTH * 0.9;
-        const binWidth = totalHorizontalSpace / numBins;
-        
-        // O espaçamento vertical dos pinos
-        const totalVerticalSpace = CANVAS_HEIGHT * 0.6;
-        const verticalSpacing = totalVerticalSpace / levels;
-        
-        // Altura da canaleta
         const binHeight = CANVAS_HEIGHT * 0.2; // 20% da altura
         
         // Posição Y inicial das canaletas
-        const startY = 130 + (levels * verticalSpacing) + (binHeight / 2);
-        // Posição X inicial das canaletas
-        const startX = (CANVAS_WIDTH - totalHorizontalSpace) / 2;
+        const startY = 130 + (levels * pegVerticalSpacing) + (binHeight / 2);
+        
+        // --- CORREÇÃO BUG 3: Centraliza o *bloco* de canaletas ---
+        const totalBinsWidth = numBins * binWidth;
+        const startX = (CANVAS_WIDTH - totalBinsWidth) / 2;
 
         // Cria as (numBins + 1) paredes verticais
         for (let i = 0; i < numBins + 1; i++) {
@@ -212,16 +197,16 @@ document.addEventListener('DOMContentLoaded', () => {
             bins.push(binWall);
         }
         
-        // --- CORREÇÃO BUG 4: ADICIONA O CHÃO DAS CANALETAS ---
-        const floorWidth = totalHorizontalSpace;
-        const floorX = startX + (floorWidth / 2); // Centro do bloco de canaletas
-        const floorY = startY + (binHeight / 2) - 2; // Posição no fundo (com 4px de espessura)
+        // Chão das canaletas
+        const floorWidth = totalBinsWidth;
+        const floorX = startX + (floorWidth / 2); // Centro do bloco
+        const floorY = startY + (binHeight / 2) - 2; 
         
         const binFloor = Bodies.rectangle(floorX, floorY, floorWidth, 4, {
             isStatic: true,
             render: { fillStyle: '#ecf0f1' }
         });
-        bins.push(binFloor); // Adiciona o chão
+        bins.push(binFloor);
 
         World.add(world, bins);
     }
@@ -229,24 +214,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function addBalls(count) {
         for (let i = 0; i < count; i++) {
             setTimeout(() => {
-                const x = CANVAS_WIDTH / 2 + Math.random() * 20 - 10;
+                // Cai de um ponto um pouco mais alto, dentro do vão
+                const x = CANVAS_WIDTH / 2 + Math.random() * 10 - 5;
+                const y = 40; // Posição Y inicial mais alta
                 
-                const initialColorIndex = 4; // Índice do DEFAULT_BALL_COLOR (branco)
+                const initialColorIndex = 4; // Branco
 
-                const ball = Bodies.circle(x, 20, BALL_RADIUS, {
+                const ball = Bodies.circle(x, y, BALL_RADIUS, {
                     label: 'ball',
                     colorIndex: initialColorIndex,
-                    
                     restitution: 0.6,
                     friction: 0.1,
-                    
-                    // --- CORREÇÃO BUG 1: Reduz atrito estático para evitar entupimento ---
-                    frictionStatic: 0.1, // Era 0.5, agora é 0.1 (menos "pegajoso")
-                    
+                    frictionStatic: 0.1, 
                     frictionAir: 0.01,
                     density: 0.005,
-                    
-                    // --- CORREÇÃO BUG 5 (PARTE 2): Adiciona contorno preto ---
                     render: {
                         fillStyle: COLOR_PALETTE[initialColorIndex],
                         strokeStyle: '#000000', // Contorno preto
