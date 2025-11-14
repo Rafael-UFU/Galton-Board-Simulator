@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Placa de Galton</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Placa de Galton Interativa</h1>
+
+    <div class="controles">
+        <div class="controle-item">
+            <label for="levels">Níveis de Pinos (2-20): <span id="levels-value">10</span></label>
+            <input type="range" id="levels" min="2" max="20" value="10">
+        </div>
+        <div class="controle-item">
+            <label for="balls">Qtd. Bolinhas (1-500): <span id="balls-value">100</span></label>
+            <input type="range" id="balls" min="1" max="500" value="100">
+        </div>
+        <button id="start-button">Iniciar Simulação</button>
+    </div>
+
+    <div id="canvas-container">
+        </div>
+    
+    <div class="instrucoes">
+        <p>Clique em uma bolinha para mudar sua cor e rastreá-la!</p>
+        <p>Cores disponíveis: 
+            <span class="cor-ex" style="background-color: #f06292;"></span>
+            <span class="cor-ex" style="background-color: #4fc3f7;"></span>
+            <span class="cor-ex" style="background-color: #aed581;"></span>
+            <span class="cor-ex" style="background-color: #ffd54f;"></span>
+            <span class="cor-ex" style="background-color: #ffffff;"></span>
+        </p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    
+    <script src="script.js"></script>
+</body>
+</html>
