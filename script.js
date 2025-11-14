@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const COLOR_PALETTE = ['#f06292', '#4fc3f7', '#aed581', '#ffd54f', DEFAULT_BALL_COLOR];
 
-    // Referências aos elementos do HTML
     const container = document.getElementById('canvas-container');
     const levelsSlider = document.getElementById('levels');
     const ballsSlider = document.getElementById('balls');
@@ -81,27 +80,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const numBalls = parseInt(ballsSlider.value);
         const numBins = numLevels + 1;
 
-        // --- CORREÇÃO BUG 2 e 3: CÁLCULO DE ESPAÇAMENTO HÍBRIDO ---
-        const totalHorizontalSpace = CANVAS_WIDTH * 0.9; // 90% da largura
-        const totalVerticalSpace = CANVAS_HEIGHT * 0.6; // 60% da altura
+        const totalHorizontalSpace = CANVAS_WIDTH * 0.9;
+        const totalVerticalSpace = CANVAS_HEIGHT * 0.6;
         
-        // Calcula o espaçamento ideal
         let pegHorizontalSpacing = totalHorizontalSpace / numBins;
-        
-        // Define um espaçamento MÁXIMO para garantir a aleatoriedade (física)
-        const maxPegSpacing = BALL_RADIUS * 8; // 5px * 8 = 40px
+        const maxPegSpacing = BALL_RADIUS * 8; // 40px
         
         if (pegHorizontalSpacing > maxPegSpacing) {
             pegHorizontalSpacing = maxPegSpacing;
         }
         
-        // A largura da canaleta será a mesma do espaçamento dos pinos
         const binWidth = pegHorizontalSpacing;
-        
-        // O espaçamento vertical pode ser sempre dinâmico
         const pegVerticalSpacing = totalVerticalSpace / numLevels;
 
-        // Passa os valores calculados para as funções de criação
         createBoundaries(); // O funil agora é fixo
         createPegs(numLevels, pegHorizontalSpacing, pegVerticalSpacing);
         createBins(numLevels, binWidth, pegVerticalSpacing);
@@ -112,13 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function createBoundaries() {
         
-        // --- CORREÇÃO BUG 1: FUNIL COM VÃO FIXO ---
-        const funnelGap = 30; // Vão fixo de 30px
+        // --- CORREÇÃO BUG 2: FUNIL MOVIDO PARA CIMA ---
+        const funnelGap = 30; 
         const funnelWallLength = 250;
-        const funnelY = 80;
-        const funnelAngle = 0.2; // 0.2 radianos
+        const funnelY = 50; // <<< MUDANÇA: Era 80, agora é 50. (Move para cima)
+        const funnelAngle = 0.2;
 
-        // Calcula a posição do centro da rampa esquerda
         const leftWallX = (CANVAS_WIDTH / 2) - (funnelGap / 2) - (funnelWallLength / 2 * Math.cos(funnelAngle));
         const leftWallY = funnelY + (funnelWallLength / 2 * Math.sin(funnelAngle));
 
@@ -128,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
             render: { fillStyle: '#95a5a6' } 
         });
 
-        // Calcula a posição do centro da rampa direita
         const rightWallX = (CANVAS_WIDTH / 2) + (funnelGap / 2) + (funnelWallLength / 2 * Math.cos(funnelAngle));
         const rightWallY = funnelY + (funnelWallLength / 2 * Math.sin(funnelAngle));
 
@@ -141,21 +130,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Paredes laterais e chão (sem alteração)
         const wallLeft = Bodies.rectangle(0, CANVAS_HEIGHT / 2, 10, CANVAS_HEIGHT, { isStatic: true, render: { visible: false } });
         const wallRight = Bodies.rectangle(CANVAS_WIDTH, CANVAS_HEIGHT / 2, 10, CANVAS_HEIGHT, { isStatic: true, render: { visible: false } });
-        const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT + 5, CANVAS_WIDTH, 10, { isStatic: true, render: { visible: false } }); // Um pouco mais para baixo
+        const ground = Bodies.rectangle(CANVAS_WIDTH / 2, CANVAS_HEIGHT + 5, CANVAS_WIDTH, 10, { isStatic: true, render: { visible: false } }); 
 
         World.add(world, [funnelLeft, funnelRight, wallLeft, wallRight, ground]);
     }
 
-    // A função agora recebe os espaçamentos calculados
     function createPegs(levels, horizontalSpacing, verticalSpacing) {
         const pegs = [];
         const startY = 130; 
 
         for (let row = 0; row < levels; row++) {
             const numPegsInRow = row + 1;
-            // A largura total da *linha* de pinos
             const rowWidth = (numPegsInRow - 1) * horizontalSpacing;
-            // Centraliza a linha
             const startX = (CANVAS_WIDTH - rowWidth) / 2;
 
             for (let i = 0; i < numPegsInRow; i++) {
@@ -164,7 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const peg = Bodies.circle(x, y, PEG_RADIUS, {
                     isStatic: true, 
-                    restitution: 0.5, 
+                    // --- CORREÇÃO BUG 1: Pinos mais "vivos" ---
+                    restitution: 0.9, // <<< MUDANÇA: Era 0.5, agora é 0.9 (muito mais "quique")
                     friction: 0.1,
                     render: { fillStyle: '#95a5a6' }
                 });
@@ -174,20 +161,16 @@ document.addEventListener('DOMContentLoaded', () => {
         World.add(world, pegs);
     }
 
-    // A função agora recebe a largura da canaleta e o espaçamento vertical
     function createBins(levels, binWidth, pegVerticalSpacing) {
         const bins = [];
         const numBins = levels + 1;
-        const binHeight = CANVAS_HEIGHT * 0.2; // 20% da altura
+        const binHeight = CANVAS_HEIGHT * 0.2; 
         
-        // Posição Y inicial das canaletas
         const startY = 130 + (levels * pegVerticalSpacing) + (binHeight / 2);
         
-        // --- CORREÇÃO BUG 3: Centraliza o *bloco* de canaletas ---
         const totalBinsWidth = numBins * binWidth;
         const startX = (CANVAS_WIDTH - totalBinsWidth) / 2;
 
-        // Cria as (numBins + 1) paredes verticais
         for (let i = 0; i < numBins + 1; i++) {
             const x = startX + i * binWidth;
             const binWall = Bodies.rectangle(x, startY, 4, binHeight, {
@@ -197,9 +180,8 @@ document.addEventListener('DOMContentLoaded', () => {
             bins.push(binWall);
         }
         
-        // Chão das canaletas
         const floorWidth = totalBinsWidth;
-        const floorX = startX + (floorWidth / 2); // Centro do bloco
+        const floorX = startX + (floorWidth / 2); 
         const floorY = startY + (binHeight / 2) - 2; 
         
         const binFloor = Bodies.rectangle(floorX, floorY, floorWidth, 4, {
@@ -214,23 +196,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function addBalls(count) {
         for (let i = 0; i < count; i++) {
             setTimeout(() => {
-                // Cai de um ponto um pouco mais alto, dentro do vão
-                const x = CANVAS_WIDTH / 2 + Math.random() * 10 - 5;
-                const y = 40; // Posição Y inicial mais alta
+                // --- CORREÇÃO BUG 1: Ponto de queda "instável" ---
+                // Solta a bolinha com um tremor microscópico no centro exato
+                const x = CANVAS_WIDTH / 2 + (Math.random() - 0.5) * 0.1; 
+                const y = 40; 
                 
                 const initialColorIndex = 4; // Branco
 
                 const ball = Bodies.circle(x, y, BALL_RADIUS, {
                     label: 'ball',
                     colorIndex: initialColorIndex,
-                    restitution: 0.6,
-                    friction: 0.1,
-                    frictionStatic: 0.1, 
+                    
+                    // --- CORREÇÃO BUG 1: Bolinha "morta" ---
+                    restitution: 0.4, // <<< MUDANÇA: Era 0.6, agora 0.4
+                    friction: 0.01,
+                    frictionStatic: 0.01, // <<< MUDANÇA: Menos atrito para não "grudar"
+                    
                     frictionAir: 0.01,
                     density: 0.005,
                     render: {
                         fillStyle: COLOR_PALETTE[initialColorIndex],
-                        strokeStyle: '#000000', // Contorno preto
+                        strokeStyle: '#000000', 
                         lineWidth: 1
                     }
                 });
